@@ -1,6 +1,7 @@
 import XCTest
 import UIKit
 
+@MainActor
 final class ShellExampleUITests: XCTestCase {
     func testCompactLibraryAndAccountAreReachable() throws {
         guard UIDevice.current.userInterfaceIdiom == .phone else {
