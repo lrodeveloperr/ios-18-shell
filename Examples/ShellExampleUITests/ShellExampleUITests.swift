@@ -33,9 +33,11 @@ final class ShellExampleUITests: XCTestCase {
         app.launch()
 
         XCTAssertTrue(app.staticTexts["shell.home.content"].waitForExistence(timeout: 15))
-        // iPadOS exposes the floating tab bar's items as accessibility
-        // cells rather than the iPhone-style TabBar buttons.
-        let search = app.cells["Search"].firstMatch
+        // The floating tab bar can report a different accessibility
+        // element type across iPadOS builds; use its visible label.
+        let search = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label == %@", "Search"))
+            .firstMatch
         XCTAssertTrue(search.waitForExistence(timeout: 5))
         search.tap()
         XCTAssertTrue(app.staticTexts["shell.search.content"].waitForExistence(timeout: 5))
