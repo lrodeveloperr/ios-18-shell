@@ -33,13 +33,14 @@ jobs:
             Examples/ShellExampleApp.swift
       - name: Select iPhone and iPad simulators
         run: |
+          xcrun simctl list devices available
           xcrun simctl list devices available -j > "$RUNNER_TEMP/simulators.json"
           python3 - "$RUNNER_TEMP/simulators.json" >> "$GITHUB_ENV" <<'PY'
           import json, sys
           devices = json.load(open(sys.argv[1]))["devices"]
           for family, key in (("iPhone", "IPHONE_SIMULATOR"), ("iPad", "IPAD_SIMULATOR")):
               candidates = [device for runtime, entries in sorted(devices.items(), reverse=True)
-                            if "iOS-" in runtime for device in entries
+                            if "iOS-18-" in runtime for device in entries
                             if device["name"].startswith(family) and device.get("isAvailable", True)]
               if not candidates:
                   raise SystemExit(f"No available {family} simulator")
@@ -50,10 +51,10 @@ jobs:
           xcodebuild -quiet -project Examples/ShellExampleApp.xcodeproj -scheme ShellExampleApp \
             -destination "platform=iOS Simulator,id=$IPHONE_SIMULATOR" \
             -derivedDataPath "$RUNNER_TEMP/ShellExampleDerivedData" \
-            -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO test
+            -parallel-testing-enabled NO ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO test
       - name: Run example UI smoke test on iPad
         run: |
           xcodebuild -quiet -project Examples/ShellExampleApp.xcodeproj -scheme ShellExampleApp \
             -destination "platform=iOS Simulator,id=$IPAD_SIMULATOR" \
             -derivedDataPath "$RUNNER_TEMP/ShellExampleDerivedData" \
-            -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO test
+            -parallel-testing-enabled NO ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO test
