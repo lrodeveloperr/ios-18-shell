@@ -54,7 +54,15 @@ jobs:
             -parallel-testing-enabled NO ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO test
       - name: Run example UI smoke test on iPad
         run: |
+          set +e
           xcodebuild -quiet -project Examples/ShellExampleApp.xcodeproj -scheme ShellExampleApp \
             -destination "platform=iOS Simulator,id=$IPAD_SIMULATOR" \
             -derivedDataPath "$RUNNER_TEMP/ShellExampleDerivedData" \
+            -resultBundlePath "$RUNNER_TEMP/ShellExample-iPad.xcresult" \
             -parallel-testing-enabled NO ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO test
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            xcrun xcresulttool get test-results summary --path "$RUNNER_TEMP/ShellExample-iPad.xcresult" || true
+            xcrun xcresulttool get test-results tests --path "$RUNNER_TEMP/ShellExample-iPad.xcresult" || true
+          fi
+          exit "$status"
