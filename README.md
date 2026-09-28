@@ -182,6 +182,12 @@ var body: some Scene {
 }
 ```
 
+For multiple windows, create the navigator as a `@StateObject` in each
+window's root view. Install `.focusedSceneObject(navigator)` on that
+window's shell and use `AppShellCommands(tabs: tabs, groups: groups)`
+in the scene's commands so shortcuts act on the active window. The full
+example uses this pattern.
+
 Sign in with Apple:
 
 ```swift
