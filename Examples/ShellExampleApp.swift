@@ -8,7 +8,6 @@ import iOS18Shell
 /// backend-driven screen; swap them for the real thing.
 @main
 struct ShellExampleApp: App {
-    @StateObject private var navigator = AppShellNavigator()
     private let container: Result<ModelContainer, Error>
 
     init() {
@@ -63,7 +62,7 @@ struct ShellExampleApp: App {
         WindowGroup {
             switch container {
             case .success(let modelContainer):
-                ShellExampleTabs(tabs: tabs, groups: groups, navigator: navigator)
+                ShellExampleTabs(tabs: tabs, groups: groups)
                     .modelContainer(modelContainer)
             case .failure:
                 ContentUnavailableView("Data Unavailable", systemImage: "externaldrive.badge.exclamationmark", description: Text("Please reopen the app or contact support if this continues."))
@@ -71,7 +70,7 @@ struct ShellExampleApp: App {
         }
         #if os(macOS)
         .commands {
-            AppShellCommands(navigator: navigator, tabs: tabs, groups: groups)
+            AppShellCommands(tabs: tabs, groups: groups)
         }
         #endif
 
@@ -97,9 +96,9 @@ private enum LibraryRoute: Hashable {
 
 private struct ShellExampleTabs: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @StateObject private var navigator = AppShellNavigator()
     let tabs: [AppTab]
     let groups: [AppTabGroup]
-    @ObservedObject var navigator: AppShellNavigator
 
     private var isCompact: Bool { horizontalSizeClass == .compact }
 
@@ -157,6 +156,9 @@ private struct ShellExampleTabs: View {
                 break
             }
         }
+        #if os(macOS)
+        .focusedSceneObject(navigator)
+        #endif
     }
 }
 
