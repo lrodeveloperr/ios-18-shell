@@ -182,6 +182,7 @@ final class DownloadRecord {
 private struct HomeView: View {
     var body: some View {
         Text("Wire this up to your existing home screen / view model.")
+            .accessibilityIdentifier("shell.home.content")
             .padding()
             .navigationTitle("Home")
     }
@@ -196,8 +197,10 @@ private struct SearchView: View {
         Group {
             if query.isEmpty {
                 Text("Type to search.")
+                    .accessibilityIdentifier("shell.search.content")
             } else {
                 Text("Results for \u{201c}\(query)\u{201d}")
+                    .accessibilityIdentifier("shell.search.content")
             }
         }
         .padding()
@@ -215,7 +218,11 @@ private struct DownloadsView: View {
             emptySystemImage: "arrow.down.circle",
             retry: retryLoad
         ) { downloads in
-            List(downloads, id: \.self) { Text($0) }
+            List {
+                Text("Your Downloads")
+                    .accessibilityIdentifier("shell.downloads.content")
+                ForEach(downloads, id: \.self) { Text($0) }
+            }
         }
         .navigationTitle("Downloads")
         .task { await load() }
@@ -246,6 +253,7 @@ private struct AccountView: View {
     var body: some View {
         VStack(spacing: 16) {
             Text("Wire this up to your existing account/settings screen.")
+                .accessibilityIdentifier("shell.account.content")
             #if os(iOS) || os(macOS) || os(visionOS)
             AppShellSignInWithAppleButton { result in
                 switch result {
