@@ -52,8 +52,7 @@ struct ShellExampleApp: App {
                     AppTab(id: "account", title: "Account", systemImage: "person.crop.circle") {
                         AccountView()
                     }
-                ],
-                hiddenFromCompactTabBar: true
+                ]
             )
         ]
     }
