@@ -14,5 +14,13 @@ jobs:
         run: xcodebuild -version
       - name: Compile and test package on macOS
         run: swift test
+      - name: Typecheck standalone example on macOS
+        run: |
+          BIN_PATH="$(swift build --show-bin-path)"
+          swiftc -typecheck -parse-as-library \
+            -target "$(uname -m)-apple-macosx15.0" \
+            -sdk "$(xcrun --sdk macosx --show-sdk-path)" \
+            -I "$BIN_PATH/Modules" \
+            Examples/ShellExampleApp.swift
       - name: Compile package for iOS Simulator
         run: xcodebuild -scheme iOS18Shell -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
