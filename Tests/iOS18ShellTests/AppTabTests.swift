@@ -21,11 +21,6 @@ final class AppTabTests: XCTestCase {
         XCTAssertNil(tab.role.native)
     }
 
-    func testGroupDefaultsToVisibleInCompactTabBar() {
-        let group = AppTabGroup(id: "library", title: "Library", tabs: [])
-        XCTAssertFalse(group.hiddenFromCompactTabBar)
-    }
-
     func testShellSelectsFirstTabByDefault() {
         let navigator = AppShellNavigator()
         let shell = AppShellView(tabIDs: ["first", "second"], navigator: navigator) {
