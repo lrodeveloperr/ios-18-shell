@@ -38,18 +38,13 @@ public struct AppTabGroup: Identifiable {
     public let title: String
     public let tabs: [AppTab]
 
-    /// - Parameter hiddenFromCompactTabBar: When true, this group is
-    ///   hidden from the iPhone-style tab bar when the consuming app
-    ///   applies `.defaultVisibility(.hidden, for: .tabBar)` to its section.
-    ///   Provide an explicit route to these destinations on compact
-    ///   devices; a hidden tab has no guaranteed "More" destination.
-    public let hiddenFromCompactTabBar: Bool
-
-    public init(id: String, title: String, tabs: [AppTab], hiddenFromCompactTabBar: Bool = false) {
+    /// `TabSection` controls native presentation independently of this
+    /// metadata. Section destinations are hidden from the compact tab
+    /// bar; provide a visible route in your compact layout.
+    public init(id: String, title: String, tabs: [AppTab]) {
         self.id = id
         self.title = title
         self.tabs = tabs
-        self.hiddenFromCompactTabBar = hiddenFromCompactTabBar
     }
 }
 
