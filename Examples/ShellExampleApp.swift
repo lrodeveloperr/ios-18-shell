@@ -8,11 +8,16 @@ import iOS18Shell
 /// backend-driven screen; swap them for the real thing.
 @main
 struct ShellExampleApp: App {
-    @StateObject private var navigator = AppShellNavigator()
+    private let container: Result<ModelContainer, Error>
 
     init() {
+        container = Result { try AppShellModelContainer.make(for: [DownloadRecord.self]) }
         // Apple's own TipKit onboarding tips — one-time setup.
-        AppShellTips.configure()
+        do {
+            try AppShellTips.configure()
+        } catch {
+            print("TipKit setup failed: \(error)")
+        }
     }
 
     private var tabs: [AppTab] {
@@ -47,27 +52,24 @@ struct ShellExampleApp: App {
                     AppTab(id: "account", title: "Account", systemImage: "person.crop.circle") {
                         AccountView()
                     }
-                ],
-                hiddenFromCompactTabBar: true
+                ]
             )
         ]
     }
 
     var body: some Scene {
         WindowGroup {
-            AppShellView(tabs: tabs, groups: groups, navigator: navigator)
-                .onOpenURL { url in
-                    // Map your own URL scheme to a tab (and, via
-                    // navigator.navigate(to:pushing:), a pushed route).
-                    // e.g. myapp://downloads -> select the "downloads" tab.
-                    guard let tabID = url.host else { return }
-                    navigator.navigate(to: tabID)
-                }
+            switch container {
+            case .success(let modelContainer):
+                ShellExampleTabs(tabs: tabs, groups: groups)
+                    .modelContainer(modelContainer)
+            case .failure:
+                ContentUnavailableView("Data Unavailable", systemImage: "externaldrive.badge.exclamationmark", description: Text("Please reopen the app or contact support if this continues."))
+            }
         }
-        .modelContainer(AppShellModelContainer.make(for: [DownloadRecord.self]))
         #if os(macOS)
         .commands {
-            AppShellCommands(navigator: navigator, tabs: tabs)
+            AppShellCommands(tabs: tabs, groups: groups)
         }
         #endif
 
@@ -82,6 +84,79 @@ struct ShellExampleApp: App {
                 }
             ])
         }
+        #endif
+    }
+}
+
+private enum LibraryRoute: Hashable {
+    case downloads
+    case favorites
+}
+
+private struct ShellExampleTabs: View {
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @StateObject private var navigator = AppShellNavigator()
+    let tabs: [AppTab]
+    let groups: [AppTabGroup]
+
+    private var isCompact: Bool { horizontalSizeClass == .compact }
+
+    var body: some View {
+        AppShellView(
+            tabIDs: isCompact
+                ? ["home", "search", "library", "account"]
+                : tabs.map(\.id) + groups.flatMap { $0.tabs.map(\.id) },
+            navigator: navigator
+        ) {
+            appShellTab(tabs[0], navigator: navigator)
+            appShellTab(tabs[1], navigator: navigator)
+            if isCompact {
+                appShellTab(AppTab(id: "library", title: "Library", systemImage: "books.vertical") {
+                    List {
+                        NavigationLink("Downloads", value: LibraryRoute.downloads)
+                        NavigationLink("Favorites", value: LibraryRoute.favorites)
+                    }
+                    .navigationTitle("Library")
+                    .navigationDestination(for: LibraryRoute.self) { route in
+                        switch route {
+                        case .downloads: DownloadsView()
+                        case .favorites: FavoritesView()
+                        }
+                    }
+                }, navigator: navigator)
+                appShellTab(groups[1].tabs[0], navigator: navigator)
+            } else {
+                TabSection("Library") {
+                    appShellTab(groups[0].tabs[0], navigator: navigator)
+                    appShellTab(groups[0].tabs[1], navigator: navigator)
+                }
+                .customizationID("shell.group.library")
+                TabSection("Settings") {
+                    appShellTab(groups[1].tabs[0], navigator: navigator)
+                }
+                .customizationID("shell.group.settings")
+                .defaultVisibility(.hidden, for: .tabBar)
+            }
+        }
+        .onOpenURL { url in
+            guard let tabID = url.host else { return }
+            switch tabID {
+            case "home", "search", "account":
+                navigator.navigate(to: tabID)
+            case "downloads":
+                if isCompact { navigator.navigate(to: "library", pushing: LibraryRoute.downloads) }
+                else { navigator.navigate(to: tabID) }
+            case "favorites":
+                if isCompact { navigator.navigate(to: "library", pushing: LibraryRoute.favorites) }
+                else { navigator.navigate(to: tabID) }
+            case "library":
+                navigator.navigate(to: isCompact ? "library" : "downloads")
+            default:
+                break
+            }
+        }
+        #if os(macOS)
+        .focusedSceneObject(navigator)
         #endif
     }
 }
@@ -107,6 +182,7 @@ final class DownloadRecord {
 private struct HomeView: View {
     var body: some View {
         Text("Wire this up to your existing home screen / view model.")
+            .accessibilityIdentifier("shell.home.content")
             .padding()
             .navigationTitle("Home")
     }
@@ -121,8 +197,10 @@ private struct SearchView: View {
         Group {
             if query.isEmpty {
                 Text("Type to search.")
+                    .accessibilityIdentifier("shell.search.content")
             } else {
                 Text("Results for \u{201c}\(query)\u{201d}")
+                    .accessibilityIdentifier("shell.search.content")
             }
         }
         .padding()
@@ -140,7 +218,11 @@ private struct DownloadsView: View {
             emptySystemImage: "arrow.down.circle",
             retry: retryLoad
         ) { downloads in
-            List(downloads, id: \.self) { Text($0) }
+            List {
+                Text("Your Downloads")
+                    .accessibilityIdentifier("shell.downloads.content")
+                ForEach(downloads, id: \.self) { Text($0) }
+            }
         }
         .navigationTitle("Downloads")
         .task { await load() }
@@ -171,6 +253,7 @@ private struct AccountView: View {
     var body: some View {
         VStack(spacing: 16) {
             Text("Wire this up to your existing account/settings screen.")
+                .accessibilityIdentifier("shell.account.content")
             #if os(iOS) || os(macOS) || os(visionOS)
             AppShellSignInWithAppleButton { result in
                 switch result {

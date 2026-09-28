@@ -2,6 +2,7 @@ import XCTest
 import SwiftUI
 @testable import iOS18Shell
 
+@MainActor
 final class AppTabTests: XCTestCase {
     func testAppTabCarriesItsChromeUnchanged() {
         let tab = AppTab(id: "home", title: "Home", systemImage: "house", role: .search) {
@@ -20,16 +21,12 @@ final class AppTabTests: XCTestCase {
         XCTAssertNil(tab.role.native)
     }
 
-    func testGroupDefaultsToVisibleInCompactTabBar() {
-        let group = AppTabGroup(id: "library", title: "Library", tabs: [])
-        XCTAssertFalse(group.hiddenFromCompactTabBar)
-    }
-
     func testShellSelectsFirstTabByDefault() {
-        let shell = AppShellView(tabs: [
-            AppTab(id: "first", title: "First", systemImage: "1.circle") { Text("1") },
-            AppTab(id: "second", title: "Second", systemImage: "2.circle") { Text("2") }
-        ])
+        let navigator = AppShellNavigator()
+        let shell = AppShellView(tabIDs: ["first", "second"], navigator: navigator) {
+            appShellTab(AppTab(id: "first", title: "First", systemImage: "1.circle") { Text("1") }, navigator: navigator)
+            appShellTab(AppTab(id: "second", title: "Second", systemImage: "2.circle") { Text("2") }, navigator: navigator)
+        }
         _ = shell // AppShellView has no public accessor for `selection`;
         // this smoke-tests that construction with multiple tabs compiles
         // and doesn't crash on init.

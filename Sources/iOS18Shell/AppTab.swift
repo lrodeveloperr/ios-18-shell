@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// A single destination in an ``AppShellView``.
+/// Metadata and content for a destination declared with `appShellTab`.
 ///
 /// `AppTab` only owns navigation chrome — the id, title, icon, and an
 /// optional role (such as `.search`). The `content` closure is where your
@@ -30,27 +30,21 @@ public struct AppTab: Identifiable {
 
 /// A labeled group of tabs.
 ///
-/// Rendered with `TabSection` — on iPad and Mac (`.sidebarAdaptable`
-/// style) this shows as a header inside the sidebar; on iPhone, Watch,
-/// and Apple TV, grouped tabs still work, they just don't get a visible
-/// section header in the compact tab bar.
+/// Metadata for related destinations. Declare a corresponding native
+/// `TabSection` in `AppShellView`'s content builder to show a sidebar
+/// section on platforms that support one.
 public struct AppTabGroup: Identifiable {
     public let id: String
     public let title: String
     public let tabs: [AppTab]
 
-    /// - Parameter hiddenFromCompactTabBar: When true, this group is
-    ///   hidden from the iPhone-style tab bar by default and only
-    ///   reachable once the shell is shown as a sidebar (iPad/Mac) or via
-    ///   the "More" tab that SwiftUI adds automatically. Useful for
-    ///   secondary destinations you don't want crowding the phone tab bar.
-    public let hiddenFromCompactTabBar: Bool
-
-    public init(id: String, title: String, tabs: [AppTab], hiddenFromCompactTabBar: Bool = false) {
+    /// `TabSection` controls native presentation independently of this
+    /// metadata. Section destinations are hidden from the compact tab
+    /// bar; provide a visible route in your compact layout.
+    public init(id: String, title: String, tabs: [AppTab]) {
         self.id = id
         self.title = title
         self.tabs = tabs
-        self.hiddenFromCompactTabBar = hiddenFromCompactTabBar
     }
 }
 

@@ -3,27 +3,8 @@ import SwiftUI
 /// Shared navigation state for ``AppShellView``: which tab is selected,
 /// each tab's own push/pop stack, and each searchable tab's query text.
 ///
-/// Create your own instance when you need to drive the shell from
-/// outside — most commonly for deep linking:
-///
-/// ```swift
-/// @main
-/// struct MyApp: App {
-///     @StateObject private var navigator = AppShellNavigator()
-///
-///     var body: some Scene {
-///         WindowGroup {
-///             AppShellView(tabs: tabs, navigator: navigator)
-///                 .onOpenURL { url in
-///                     // Map your own URL scheme to a tab + route.
-///                     navigator.navigate(to: "library", pushing: route(for: url))
-///                 }
-///         }
-///     }
-/// }
-/// ```
-///
-/// If you don't supply one, `AppShellView` creates and owns its own.
+/// Pass the same instance to `AppShellView`, `appShellTab`, and any
+/// deep-link handler. See `Examples/ShellExampleApp.swift` for wiring.
 @MainActor
 public final class AppShellNavigator: ObservableObject {
     /// The currently selected tab id. Empty until the shell resolves an
@@ -57,12 +38,14 @@ public final class AppShellNavigator: ObservableObject {
         paths[tabID] = NavigationPath()
     }
 
-    /// Selects a tab and, optionally, pushes a value onto its navigation
-    /// stack. This is the building block for deep linking and push
-    /// notification routing: map your incoming URL/payload to a tab id
-    /// and a `Hashable` route your tab's content already handles via
-    /// `.navigationDestination(for:)`, then call this.
-    public func navigate<Route: Hashable>(to tabID: String, pushing route: Route? = nil) {
+    /// Selects a tab without changing its navigation stack.
+    public func navigate(to tabID: String) {
+        selection = tabID
+    }
+
+    /// Selects a tab and optionally pushes a `Hashable` route that its
+    /// content handles with `.navigationDestination(for:)`.
+    public func navigate<Route: Hashable>(to tabID: String, pushing route: Route?) {
         selection = tabID
         if let route {
             paths[tabID, default: NavigationPath()].append(route)

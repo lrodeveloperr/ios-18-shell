@@ -11,29 +11,29 @@ Human Interface Guidelines for navigation:
 
 | Platform | Presentation |
 |---|---|
-| iPhone | Floating, translucent bottom tab bar |
+| iPhone | System bottom tab bar (appearance follows the installed OS) |
 | iPad | `.sidebarAdaptable` — tab bar or full sidebar, user-toggleable |
 | Mac | `.sidebarAdaptable` sidebar (no bottom tab bar, per macOS HIG) |
 | Vision Pro | Same sidebar-adaptable behavior as iPad/Mac |
 | Apple Watch | Standard vertical paging carousel |
 | Apple TV | Standard top-aligned, focus-driven tab bar |
 
-`AppShellView` owns navigation chrome — tabs, sidebar/tab-bar
-adaptation, per-tab push navigation, search, and selection restoration —
-so the content of each tab is just whatever `View` you already have.
+`AppShellView` owns sidebar/tab-bar adaptation, customization and scene
+selection. Declare tabs statically with `appShellTab` and `TabSection`;
+the helper supplies each destination's navigation stack and search.
 
 ## What's included
 
 | Piece | What it gives you | Built on |
 |---|---|---|
-| `AppShellView` | The adaptive tab bar/sidebar shell itself, each tab in its own `NavigationStack`, selection restored across launches | `TabView`, `Tab`, `TabSection`, `NavigationStack`, `@SceneStorage` |
+| `AppShellView` / `appShellTab` | Native tab bar/sidebar, per-tab `NavigationStack`, best-effort scene selection restoration | `TabView`, `Tab`, `TabSection`, `NavigationStack`, `@SceneStorage` |
 | `AppShellNavigator` | Shared state for selected tab + per-tab push path + per-tab search text; the hook for deep linking (`navigate(to:pushing:)`) | `ObservableObject`, `NavigationPath` |
 | `appShellSearchQuery` environment key | The search-role tab gets `.searchable()` wired automatically; read the live query with `@Environment(\.appShellSearchQuery)` | `.searchable(text:)` |
 | `AppLoadState` / `AppAsyncStateView` | Consistent loading / empty / error UI for any backend call, no hand-rolled `if/else` per screen | `ContentUnavailableView`, `ProgressView` |
-| `AppShellSettingsView` / `AppShellSettingsPane` | A standard multi-pane macOS Settings window | `TabView` + `.tabItem` (the same pattern macOS's own Settings uses) |
-| `AppShellCommands` | ⌘1…⌘9 menu bar shortcuts that jump between tabs | `Commands`, `CommandMenu` |
-| `AppShellModelContainer` | One-line `ModelContainer` setup for your `@Model` types | SwiftData |
-| `AppShellTips` | One-line TipKit configuration for onboarding tips | TipKit |
+| `AppShellSettingsView` / `AppShellSettingsPane` | A multi-pane macOS Settings window | `TabView` + `.tabItem` |
+| `AppShellCommands` | ⌘1…⌘9 shortcuts for the first nine top-level and grouped destinations (unavailable on watchOS) | `Commands`, `CommandMenu` |
+| `AppShellModelContainer` | Throwing `ModelContainer` setup so storage failures can be handled | SwiftData |
+| `AppShellTips` | Throwing TipKit configuration for contextual tips | TipKit |
 | `AppShellSignInWithAppleButton` | A ready "Sign in with Apple" button (iOS/macOS/visionOS only — there's no watchOS/tvOS button in AuthenticationServices) | AuthenticationServices |
 
 ## Requirements
@@ -68,15 +68,19 @@ import iOS18Shell
 @main
 struct MyApp: App {
     var body: some Scene {
-        WindowGroup {
-            AppShellView(tabs: [
-                AppTab(id: "home", title: "Home", systemImage: "house") {
-                    HomeView() // your existing screen
-                },
-                AppTab(id: "search", title: "Search", systemImage: "magnifyingglass", role: .search) {
-                    SearchView()
-                }
-            ])
+        WindowGroup { RootView() }
+    }
+}
+
+struct RootView: View {
+    @StateObject private var navigator = AppShellNavigator()
+    private let home = AppTab(id: "home", title: "Home", systemImage: "house") { HomeView() }
+    private let search = AppTab(id: "search", title: "Search", systemImage: "magnifyingglass", role: .search) { SearchView() }
+
+    var body: some View {
+        AppShellView(tabIDs: ["home", "search"], navigator: navigator) {
+            appShellTab(home, navigator: navigator)
+            appShellTab(search, navigator: navigator)
         }
     }
 }
@@ -85,19 +89,21 @@ struct MyApp: App {
 Grouped tabs (shown as a labeled sidebar section on iPad/Mac/Vision Pro):
 
 ```swift
-AppShellView(
-    tabs: [/* ... */],
-    groups: [
-        AppTabGroup(id: "library", title: "Library", tabs: [
-            AppTab(id: "downloads", title: "Downloads", systemImage: "arrow.down.circle") { DownloadsView() },
-            AppTab(id: "favorites", title: "Favorites", systemImage: "star") { FavoritesView() }
-        ]),
-        AppTabGroup(id: "settings", title: "Settings", tabs: [
-            AppTab(id: "account", title: "Account", systemImage: "person.crop.circle") { AccountView() }
-        ], hiddenFromCompactTabBar: true) // keep it off the iPhone tab bar
-    ]
-)
+AppShellView(tabIDs: ["home", "downloads", "favorites"], navigator: navigator) {
+    appShellTab(home, navigator: navigator)
+    TabSection("Library") {
+        appShellTab(downloads, navigator: navigator)
+        appShellTab(favorites, navigator: navigator)
+    }
+    .customizationID("shell.group.library")
+}
 ```
+
+On iPhone, `TabSection` destinations are hidden from the compact tab
+bar by default. Provide a visible top-level tab with links to those
+destinations, or present a different compact tab structure. The full
+example switches to a visible Library tab and Account tab in compact
+layouts, while keeping sections in regular layouts.
 
 Search — just read the environment value, no extra `@State`:
 
@@ -128,20 +134,33 @@ Deep linking, own a shared navigator and drive it from `.onOpenURL`:
 ```swift
 @StateObject private var navigator = AppShellNavigator()
 // ...
-AppShellView(tabs: tabs, navigator: navigator)
+AppShellView(tabIDs: tabs.map(\.id), navigator: navigator) {
+    appShellTab(tabs[0], navigator: navigator)
+    appShellTab(tabs[1], navigator: navigator)
+}
     .onOpenURL { url in
-        navigator.navigate(to: "library", pushing: route(for: url))
+        navigator.navigate(to: "home") // Validate and map the URL to a declared tab ID.
     }
 ```
 
 Persistence (SwiftData) and onboarding (TipKit), wired at the app root:
 
 ```swift
-init() { AppShellTips.configure() }
+init() {
+    do { try AppShellTips.configure() }
+    catch { print("TipKit setup failed: \(error)") }
+}
 
 var body: some Scene {
-    WindowGroup { AppShellView(tabs: tabs) }
-        .modelContainer(AppShellModelContainer.make(for: [Album.self]))
+    WindowGroup {
+        if let container = try? AppShellModelContainer.make(for: [Album.self]) {
+            AppShellView(tabIDs: tabs.map(\.id), navigator: navigator) {
+                appShellTab(tabs[0], navigator: navigator)
+            }.modelContainer(container)
+        } else {
+            ContentUnavailableView("Data Unavailable", systemImage: "externaldrive.badge.exclamationmark")
+        }
+    }
 }
 ```
 
@@ -149,7 +168,11 @@ macOS menu bar tab-switching and a Settings window:
 
 ```swift
 var body: some Scene {
-    WindowGroup { AppShellView(tabs: tabs, navigator: navigator) }
+    WindowGroup {
+        AppShellView(tabIDs: tabs.map(\.id), navigator: navigator) {
+            appShellTab(tabs[0], navigator: navigator)
+        }
+    }
         .commands { AppShellCommands(navigator: navigator, tabs: tabs) }
     Settings {
         AppShellSettingsView(panes: [
@@ -159,16 +182,26 @@ var body: some Scene {
 }
 ```
 
+For multiple windows, create the navigator as a `@StateObject` in each
+window's root view. Install `.focusedSceneObject(navigator)` on that
+window's shell and use `AppShellCommands(tabs: tabs, groups: groups)`
+in the scene's commands so shortcuts act on the active window. The full
+example uses this pattern.
+
 Sign in with Apple:
 
 ```swift
-AppShellSignInWithAppleButton { result in
+AppShellSignInWithAppleButton(requestedScopes: [.email]) { result in
     // result: Result<ASAuthorization, Error> — send the credential to your backend.
 }
 ```
 
-See `Examples/ShellExampleApp.swift` for all of the above wired together
-in one runnable example app.
+Open `Examples/ShellExampleApp.xcodeproj` in Xcode to run the example
+on an iOS 18+ iPhone or iPad simulator. It links this repository as a
+local Swift package. `Product > Test` runs the UI smoke checks for
+compact navigation on iPhone and regular navigation on iPad; CI runs
+both. The example source is also typechecked for macOS, but the Xcode
+sample app itself targets iOS and iPadOS.
 
 ## Project layout
 
@@ -196,7 +229,9 @@ Tests/iOS18ShellTests/
   AppTabTests.swift
   AppShellNavigatorTests.swift
 Examples/
-  ShellExampleApp.swift      // full usage example, every piece wired together
+  ShellExampleApp.swift      // runnable iPhone/iPad integration example
+  ShellExampleApp.xcodeproj/ // Xcode app and UI-test targets
+  ShellExampleUITests/        // simulator navigation smoke tests
 ```
 
 ## Design notes
@@ -204,11 +239,18 @@ Examples/
 - Everything is chrome/plumbing only: `AppShellView` doesn't know or
   care what's inside each tab, so it sits in front of whatever backend
   networking/state layer your screens already use.
-- Tabs are data-driven (`ForEach` inside `TabView`), so you can build
-  the `[AppTab]` array dynamically — e.g. from a feature-flagged or
-  role-based navigation config — without hand-writing a `switch`.
-- `TabViewCustomization` is wired up so people can reorder or hide tabs
-  on iPad/Mac/Vision Pro; their choices persist automatically.
+- Declare `appShellTab` calls and `TabSection` structure in the native
+  tab content builder. Xcode 16's `ForEach` view builder cannot emit
+  the new `Tab` content type; apps with different destinations compose
+  their static structure from the app's frozen flow.
+- `TabViewCustomization` uses `@AppStorage` so sidebar and tab-bar
+  choices persist. `@SceneStorage` restores a tab selection when the
+  system restores that scene; it is not a permanent launch preference.
+- `initialSelection` is used only when no valid scene selection exists.
+  A hidden compact tab needs an explicit in-app route on iPhone; don't
+  depend on SwiftUI supplying a "More" tab.
+- A repeated tap does not automatically pop a navigation stack; use
+  `navigator.popToRoot(_:)` when your app explicitly offers that action.
 - No third-party dependencies anywhere in this package — every piece is
   a first-party Apple framework (SwiftUI, SwiftData, TipKit,
   AuthenticationServices), so there's nothing extra to audit or update.
