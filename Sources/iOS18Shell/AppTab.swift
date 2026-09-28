@@ -56,7 +56,7 @@ public struct AppTabGroup: Identifiable {
 
 /// Mirrors `SwiftUI.TabRole` so call sites don't need to import
 /// platform-conditional availability just to build an ``AppTab``.
-public enum AppTabRole {
+public enum AppTabRole: Equatable {
     case none
     case search
 
