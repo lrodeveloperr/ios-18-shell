@@ -63,15 +63,28 @@ struct ShellExampleApp: App {
         WindowGroup {
             switch container {
             case .success(let modelContainer):
-                AppShellView(tabs: tabs, groups: groups, navigator: navigator)
+                AppShellView(
+                    tabIDs: tabs.map(\.id) + groups.flatMap { $0.tabs.map(\.id) },
+                    navigator: navigator
+                ) {
+                    appShellTab(tabs[0], navigator: navigator)
+                    appShellTab(tabs[1], navigator: navigator)
+                    TabSection("Library") {
+                        appShellTab(groups[0].tabs[0], navigator: navigator)
+                        appShellTab(groups[0].tabs[1], navigator: navigator)
+                    }
+                    .customizationID("shell.group.library")
+                    TabSection("Settings") {
+                        appShellTab(groups[1].tabs[0], navigator: navigator)
+                    }
+                    .customizationID("shell.group.settings")
+                    .defaultVisibility(.hidden, for: .tabBar)
+                }
                     .modelContainer(modelContainer)
                     .onOpenURL { url in
-                    // Map your own URL scheme to a tab (and, via
-                    // navigator.navigate(to:pushing:), a pushed route).
-                    // e.g. myapp://downloads -> select the "downloads" tab.
-                    guard let tabID = url.host,
-                          (tabs.map(\.id) + groups.flatMap { $0.tabs.map(\.id) }).contains(tabID)
-                    else { return }
+                        guard let tabID = url.host,
+                              (tabs.map(\.id) + groups.flatMap { $0.tabs.map(\.id) }).contains(tabID)
+                        else { return }
                         navigator.navigate(to: tabID)
                     }
             case .failure:

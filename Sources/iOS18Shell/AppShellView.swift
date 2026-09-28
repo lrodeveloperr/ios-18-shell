@@ -1,143 +1,88 @@
 import SwiftUI
 
-/// A ready-made application shell built entirely on official Apple
-/// frameworks — the iOS 18 / Xcode 16 `TabView` APIs (`Tab`,
-/// `TabSection`, `.sidebarAdaptable`, `TabViewCustomization`), plus
-/// per-tab `NavigationStack`s, `.searchable` wiring, and scene-storage
-/// selection restoration. No third-party dependencies.
-///
-/// Hand it your tabs; `AppShellView` picks the right chrome per platform:
-///
-/// - **iPhone**: the system bottom tab bar.
-/// - **iPad & Mac**: `.sidebarAdaptable` — people can flip between a
-///   compact tab bar and a full sidebar, and can drag to reorder or hide
-///   tabs (persisted via `TabViewCustomization`).
-/// - **Vision Pro**: same sidebar-adaptable behavior as iPad/Mac.
-/// - **Apple Watch**: the standard vertical paging carousel.
-/// - **Apple TV**: the standard top-aligned, focus-driven tab bar.
-///
-/// Every tab gets its own `NavigationStack` (push/pop history, deep-link
-/// target) and the shell remembers which tab was selected across
-/// scene restoration via `@SceneStorage`. Wrap your existing backend-driven
-/// screens as ``AppTab`` content and drop this in at the root of your
-/// `App`:
-///
-/// ```swift
-/// @main
-/// struct MyApp: App {
-///     var body: some Scene {
-///         WindowGroup {
-///             AppShellView(tabs: [
-///                 AppTab(id: "home", title: "Home", systemImage: "house") {
-///                     HomeView() // your existing view
-///                 },
-///                 AppTab(id: "search", title: "Search", systemImage: "magnifyingglass", role: .search) {
-///                     SearchView()
-///                 }
-///             ])
-///         }
-///     }
-/// }
-/// ```
-public struct AppShellView: View {
-    private let tabs: [AppTab]
-    private let groups: [AppTabGroup]
+/// Native iOS 18 tab and sidebar shell. Declare `Tab` and `TabSection`
+/// statically in the content builder; Xcode 16's `ForEach` view builder
+/// cannot emit `TabContent` from an array of tabs.
+public struct AppShellView<Content: TabContent<String>>: View {
+    private let tabIDs: [String]
     private let initialSelection: String?
+    private let content: () -> Content
 
-    @StateObject private var navigator: AppShellNavigator
+    @ObservedObject private var navigator: AppShellNavigator
     @AppStorage("iOS18Shell.tabCustomization") private var customization = TabViewCustomization()
     @SceneStorage("iOS18Shell.selectedTab") private var storedSelection = ""
 
-    /// - Parameters:
-    ///   - tabs: Top-level tabs, shown ungrouped.
-    ///   - groups: Optional labeled sections, shown as sidebar headers
-    ///     on iPad/Mac/Vision Pro.
-    ///   - navigator: Supply your own ``AppShellNavigator`` when you need
-    ///     to drive tab selection or push navigation from outside the
-    ///     shell (deep links, push notifications). Omit it to let the
-    ///     shell own its own.
-    ///   - initialSelection: The tab id selected when no valid scene
-    ///     selection can be restored. Defaults to the first tab.
+    /// `tabIDs` must contain every tab value declared in `content`, in
+    /// display order, including tabs inside sections. The app owns its
+    /// navigator so deep links and tab content can share the same state.
     public init(
-        tabs: [AppTab],
-        groups: [AppTabGroup] = [],
-        navigator: AppShellNavigator? = nil,
-        initialSelection: String? = nil
+        tabIDs: [String],
+        navigator: AppShellNavigator,
+        initialSelection: String? = nil,
+        @TabContentBuilder<String> content: @escaping () -> Content
     ) {
-        self.tabs = tabs
-        self.groups = groups
+        self.tabIDs = tabIDs
         self.initialSelection = initialSelection
-        _navigator = StateObject(wrappedValue: navigator ?? AppShellNavigator())
+        self.navigator = navigator
+        self.content = content
     }
 
     public var body: some View {
-        configuredTabs
+        tabView
+            .applySidebarAdaptableStyle(customization: $customization)
             .onAppear(perform: restoreSelectionIfNeeded)
-            .onChange(of: navigator.selection, perform: selectionDidChange)
-            .onChange(of: allTabIDs(), perform: tabIDsDidChange)
-    }
-
-    private var configuredTabs: some View {
-        tabView.applySidebarAdaptableStyle(customization: $customization)
+            .onChange(of: navigator.selection) { _, newValue in
+                selectionDidChange(newValue)
+            }
+            .onChange(of: tabIDs) { _, newIDs in
+                if !newIDs.contains(navigator.selection) {
+                    navigator.selection = newIDs.first ?? ""
+                }
+            }
     }
 
     private var tabView: some View {
         TabView(selection: $navigator.selection) {
-            ForEach(tabs) { tab in
-                Tab(tab.title, systemImage: tab.systemImage, value: tab.id, role: tab.role.native) {
-                    tabContent(for: tab)
-                }
-                .customizationID("shell.tab.\(tab.id)")
-            }
-
-            ForEach(groups) { group in
-                TabSection(group.title) {
-                    ForEach(group.tabs) { tab in
-                        Tab(tab.title, systemImage: tab.systemImage, value: tab.id, role: tab.role.native) {
-                            tabContent(for: tab)
-                        }
-                        .customizationID("shell.tab.\(tab.id)")
-                    }
-                }
-                .customizationID("shell.group.\(group.id)")
-                .defaultVisibility(group.hiddenFromCompactTabBar ? .hidden : .visible, for: .tabBar)
-            }
+            content()
         }
     }
 
-    private func selectionDidChange(_ oldValue: String, _ newValue: String) {
+    private func selectionDidChange(_ newValue: String) {
         guard !newValue.isEmpty else { return }
-        guard allTabIDs().contains(newValue) else {
-            navigator.selection = allTabIDs().first ?? ""
+        guard tabIDs.contains(newValue) else {
+            navigator.selection = tabIDs.first ?? ""
             return
         }
         storedSelection = newValue
     }
 
-    private func tabIDsDidChange(_ oldIDs: [String], _ knownIDs: [String]) {
-        if !knownIDs.contains(navigator.selection) {
-            navigator.selection = knownIDs.first ?? ""
-        }
-    }
-
     private func restoreSelectionIfNeeded() {
-        let knownIDs = allTabIDs()
-        if knownIDs.contains(navigator.selection) { return }
-        if knownIDs.contains(storedSelection) {
+        if tabIDs.contains(navigator.selection) { return }
+        if tabIDs.contains(storedSelection) {
             navigator.selection = storedSelection
-        } else if let initialSelection, knownIDs.contains(initialSelection) {
+        } else if let initialSelection, tabIDs.contains(initialSelection) {
             navigator.selection = initialSelection
         } else {
-            navigator.selection = knownIDs.first ?? ""
+            navigator.selection = tabIDs.first ?? ""
         }
     }
+}
 
-    private func allTabIDs() -> [String] {
-        tabs.map(\.id) + groups.flatMap { $0.tabs.map(\.id) }
+/// Converts one app tab model into Apple's native `TabContent`. Call
+/// this once per destination in `AppShellView`'s content builder.
+@MainActor
+public func appShellTab(_ tab: AppTab, navigator: AppShellNavigator) -> some TabContent<String> {
+    Tab(tab.title, systemImage: tab.systemImage, value: tab.id, role: tab.role.native) {
+        AppShellTabContent(tab: tab, navigator: navigator)
     }
+    .customizationID("shell.tab.\(tab.id)")
+}
 
-    @ViewBuilder
-    private func tabContent(for tab: AppTab) -> some View {
+private struct AppShellTabContent: View {
+    let tab: AppTab
+    @ObservedObject var navigator: AppShellNavigator
+
+    var body: some View {
         NavigationStack(path: navigator.path(for: tab.id)) {
             Group {
                 if tab.role == .search {
@@ -153,10 +98,6 @@ public struct AppShellView: View {
 }
 
 private extension View {
-    /// `.sidebarAdaptable` + `TabViewCustomization` only exist on
-    /// platforms with a sidebar concept (iPad, Mac, Vision Pro). Apple
-    /// Watch and Apple TV keep their platform-standard `TabView`
-    /// presentation untouched.
     @ViewBuilder
     func applySidebarAdaptableStyle(customization: Binding<TabViewCustomization>) -> some View {
         #if os(iOS) || os(macOS) || os(visionOS)
