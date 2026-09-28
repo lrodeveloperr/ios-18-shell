@@ -63,30 +63,8 @@ struct ShellExampleApp: App {
         WindowGroup {
             switch container {
             case .success(let modelContainer):
-                AppShellView(
-                    tabIDs: tabs.map(\.id) + groups.flatMap { $0.tabs.map(\.id) },
-                    navigator: navigator
-                ) {
-                    appShellTab(tabs[0], navigator: navigator)
-                    appShellTab(tabs[1], navigator: navigator)
-                    TabSection("Library") {
-                        appShellTab(groups[0].tabs[0], navigator: navigator)
-                        appShellTab(groups[0].tabs[1], navigator: navigator)
-                    }
-                    .customizationID("shell.group.library")
-                    TabSection("Settings") {
-                        appShellTab(groups[1].tabs[0], navigator: navigator)
-                    }
-                    .customizationID("shell.group.settings")
-                    .defaultVisibility(.hidden, for: .tabBar)
-                }
+                ShellExampleTabs(tabs: tabs, groups: groups, navigator: navigator)
                     .modelContainer(modelContainer)
-                    .onOpenURL { url in
-                        guard let tabID = url.host,
-                              (tabs.map(\.id) + groups.flatMap { $0.tabs.map(\.id) }).contains(tabID)
-                        else { return }
-                        navigator.navigate(to: tabID)
-                    }
             case .failure:
                 ContentUnavailableView("Data Unavailable", systemImage: "externaldrive.badge.exclamationmark", description: Text("Please reopen the app or contact support if this continues."))
             }
@@ -109,6 +87,76 @@ struct ShellExampleApp: App {
             ])
         }
         #endif
+    }
+}
+
+private enum LibraryRoute: Hashable {
+    case downloads
+    case favorites
+}
+
+private struct ShellExampleTabs: View {
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    let tabs: [AppTab]
+    let groups: [AppTabGroup]
+    @ObservedObject var navigator: AppShellNavigator
+
+    private var isCompact: Bool { horizontalSizeClass == .compact }
+
+    var body: some View {
+        AppShellView(
+            tabIDs: isCompact
+                ? ["home", "search", "library", "account"]
+                : tabs.map(\.id) + groups.flatMap { $0.tabs.map(\.id) },
+            navigator: navigator
+        ) {
+            appShellTab(tabs[0], navigator: navigator)
+            appShellTab(tabs[1], navigator: navigator)
+            if isCompact {
+                appShellTab(AppTab(id: "library", title: "Library", systemImage: "books.vertical") {
+                    List {
+                        NavigationLink("Downloads", value: LibraryRoute.downloads)
+                        NavigationLink("Favorites", value: LibraryRoute.favorites)
+                    }
+                    .navigationTitle("Library")
+                    .navigationDestination(for: LibraryRoute.self) { route in
+                        switch route {
+                        case .downloads: DownloadsView()
+                        case .favorites: FavoritesView()
+                        }
+                    }
+                }, navigator: navigator)
+                appShellTab(groups[1].tabs[0], navigator: navigator)
+            } else {
+                TabSection("Library") {
+                    appShellTab(groups[0].tabs[0], navigator: navigator)
+                    appShellTab(groups[0].tabs[1], navigator: navigator)
+                }
+                .customizationID("shell.group.library")
+                TabSection("Settings") {
+                    appShellTab(groups[1].tabs[0], navigator: navigator)
+                }
+                .customizationID("shell.group.settings")
+                .defaultVisibility(.hidden, for: .tabBar)
+            }
+        }
+        .onOpenURL { url in
+            guard let tabID = url.host else { return }
+            switch tabID {
+            case "home", "search", "account":
+                navigator.navigate(to: tabID)
+            case "downloads":
+                if isCompact { navigator.navigate(to: "library", pushing: LibraryRoute.downloads) }
+                else { navigator.navigate(to: tabID) }
+            case "favorites":
+                if isCompact { navigator.navigate(to: "library", pushing: LibraryRoute.favorites) }
+                else { navigator.navigate(to: tabID) }
+            case "library":
+                navigator.navigate(to: isCompact ? "library" : "downloads")
+            default:
+                break
+            }
+        }
     }
 }
 
