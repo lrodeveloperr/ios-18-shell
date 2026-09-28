@@ -32,6 +32,14 @@ final class AppShellNavigatorTests: XCTestCase {
 
     func testNavigateWithoutRouteOnlySelectsTab() {
         let navigator = AppShellNavigator()
+        navigator.navigate(to: "home")
+
+        XCTAssertEqual(navigator.selection, "home")
+        XCTAssertTrue(navigator.path(for: "home").wrappedValue.isEmpty)
+    }
+
+    func testNavigateWithAbsentOptionalRouteOnlySelectsTab() {
+        let navigator = AppShellNavigator()
         navigator.navigate(to: "home", pushing: Optional<Int>.none)
 
         XCTAssertEqual(navigator.selection, "home")
