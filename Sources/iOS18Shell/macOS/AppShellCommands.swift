@@ -2,18 +2,17 @@
 import SwiftUI
 
 /// Menu bar commands that jump between the shell's tabs, with ⌘1…⌘9
-/// shortcuts — the standard macOS pattern for primary navigation (see
-/// Mail, Music, and Apple's own multiplatform sample apps). Harmless to
-/// include on other platforms; a hardware keyboard on iPad honors the
-/// same shortcuts, and it's simply unused on watchOS/tvOS.
+/// shortcuts. When each window owns a navigator, install it with
+/// `.focusedSceneObject(navigator)` and use `init(tabs:groups:)` so
+/// shortcuts target the active Mac window.
 ///
 /// ```swift
 /// var body: some Scene {
 ///     WindowGroup {
-///         AppShellView(tabs: tabs, navigator: navigator)
+///         ShellRootView()
 ///     }
 ///     .commands {
-///         AppShellCommands(navigator: navigator, tabs: tabs)
+///         AppShellCommands(tabs: tabs)
 ///     }
 /// }
 /// ```
