@@ -18,15 +18,15 @@ Human Interface Guidelines for navigation:
 | Apple Watch | Standard vertical paging carousel |
 | Apple TV | Standard top-aligned, focus-driven tab bar |
 
-`AppShellView` owns navigation chrome — tabs, sidebar/tab-bar
-adaptation, per-tab push navigation, search, and selection restoration —
-so the content of each tab is just whatever `View` you already have.
+`AppShellView` owns sidebar/tab-bar adaptation, customization and scene
+selection. Declare tabs statically with `appShellTab` and `TabSection`;
+the helper supplies each destination's navigation stack and search.
 
 ## What's included
 
 | Piece | What it gives you | Built on |
 |---|---|---|
-| `AppShellView` | Adaptive tab bar/sidebar, each tab in its own `NavigationStack`, best-effort scene selection restoration | `TabView`, `Tab`, `TabSection`, `NavigationStack`, `@SceneStorage` |
+| `AppShellView` / `appShellTab` | Native tab bar/sidebar, per-tab `NavigationStack`, best-effort scene selection restoration | `TabView`, `Tab`, `TabSection`, `NavigationStack`, `@SceneStorage` |
 | `AppShellNavigator` | Shared state for selected tab + per-tab push path + per-tab search text; the hook for deep linking (`navigate(to:pushing:)`) | `ObservableObject`, `NavigationPath` |
 | `appShellSearchQuery` environment key | The search-role tab gets `.searchable()` wired automatically; read the live query with `@Environment(\.appShellSearchQuery)` | `.searchable(text:)` |
 | `AppLoadState` / `AppAsyncStateView` | Consistent loading / empty / error UI for any backend call, no hand-rolled `if/else` per screen | `ContentUnavailableView`, `ProgressView` |
@@ -68,15 +68,19 @@ import iOS18Shell
 @main
 struct MyApp: App {
     var body: some Scene {
-        WindowGroup {
-            AppShellView(tabs: [
-                AppTab(id: "home", title: "Home", systemImage: "house") {
-                    HomeView() // your existing screen
-                },
-                AppTab(id: "search", title: "Search", systemImage: "magnifyingglass", role: .search) {
-                    SearchView()
-                }
-            ])
+        WindowGroup { RootView() }
+    }
+}
+
+struct RootView: View {
+    @StateObject private var navigator = AppShellNavigator()
+    private let home = AppTab(id: "home", title: "Home", systemImage: "house") { HomeView() }
+    private let search = AppTab(id: "search", title: "Search", systemImage: "magnifyingglass", role: .search) { SearchView() }
+
+    var body: some View {
+        AppShellView(tabIDs: ["home", "search"], navigator: navigator) {
+            appShellTab(home, navigator: navigator)
+            appShellTab(search, navigator: navigator)
         }
     }
 }
@@ -85,18 +89,14 @@ struct MyApp: App {
 Grouped tabs (shown as a labeled sidebar section on iPad/Mac/Vision Pro):
 
 ```swift
-AppShellView(
-    tabs: [/* ... */],
-    groups: [
-        AppTabGroup(id: "library", title: "Library", tabs: [
-            AppTab(id: "downloads", title: "Downloads", systemImage: "arrow.down.circle") { DownloadsView() },
-            AppTab(id: "favorites", title: "Favorites", systemImage: "star") { FavoritesView() }
-        ]),
-        AppTabGroup(id: "settings", title: "Settings", tabs: [
-            AppTab(id: "account", title: "Account", systemImage: "person.crop.circle") { AccountView() }
-        ], hiddenFromCompactTabBar: true) // provide a separate route on iPhone
-    ]
-)
+AppShellView(tabIDs: ["home", "downloads", "favorites"], navigator: navigator) {
+    appShellTab(home, navigator: navigator)
+    TabSection("Library") {
+        appShellTab(downloads, navigator: navigator)
+        appShellTab(favorites, navigator: navigator)
+    }
+    .customizationID("shell.group.library")
+}
 ```
 
 Search — just read the environment value, no extra `@State`:
@@ -128,7 +128,10 @@ Deep linking, own a shared navigator and drive it from `.onOpenURL`:
 ```swift
 @StateObject private var navigator = AppShellNavigator()
 // ...
-AppShellView(tabs: tabs, navigator: navigator)
+AppShellView(tabIDs: tabs.map(\.id), navigator: navigator) {
+    appShellTab(tabs[0], navigator: navigator)
+    appShellTab(tabs[1], navigator: navigator)
+}
     .onOpenURL { url in
         navigator.navigate(to: "library", pushing: route(for: url))
     }
@@ -145,7 +148,9 @@ init() {
 var body: some Scene {
     WindowGroup {
         if let container = try? AppShellModelContainer.make(for: [Album.self]) {
-            AppShellView(tabs: tabs).modelContainer(container)
+            AppShellView(tabIDs: tabs.map(\.id), navigator: navigator) {
+                appShellTab(tabs[0], navigator: navigator)
+            }.modelContainer(container)
         } else {
             ContentUnavailableView("Data Unavailable", systemImage: "externaldrive.badge.exclamationmark")
         }
@@ -157,7 +162,11 @@ macOS menu bar tab-switching and a Settings window:
 
 ```swift
 var body: some Scene {
-    WindowGroup { AppShellView(tabs: tabs, navigator: navigator) }
+    WindowGroup {
+        AppShellView(tabIDs: tabs.map(\.id), navigator: navigator) {
+            appShellTab(tabs[0], navigator: navigator)
+        }
+    }
         .commands { AppShellCommands(navigator: navigator, tabs: tabs) }
     Settings {
         AppShellSettingsView(panes: [
@@ -175,8 +184,8 @@ AppShellSignInWithAppleButton(requestedScopes: [.email]) { result in
 }
 ```
 
-See `Examples/ShellExampleApp.swift` for all of the above wired together
-in one runnable example app.
+See `Examples/ShellExampleApp.swift` for integration wiring. The example
+is source-only and is not compiled by the package test target.
 
 ## Project layout
 
@@ -212,9 +221,10 @@ Examples/
 - Everything is chrome/plumbing only: `AppShellView` doesn't know or
   care what's inside each tab, so it sits in front of whatever backend
   networking/state layer your screens already use.
-- Tabs are data-driven (`ForEach` inside `TabView`), so you can build
-  the `[AppTab]` array dynamically — e.g. from a feature-flagged or
-  role-based navigation config — without hand-writing a `switch`.
+- Declare `appShellTab` calls and `TabSection` structure in the native
+  tab content builder. Xcode 16's `ForEach` view builder cannot emit
+  the new `Tab` content type; apps with different destinations compose
+  their static structure from the app's frozen flow.
 - `TabViewCustomization` uses `@AppStorage` so sidebar and tab-bar
   choices persist. `@SceneStorage` restores a tab selection when the
   system restores that scene; it is not a permanent launch preference.

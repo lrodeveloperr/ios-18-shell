@@ -2,6 +2,7 @@ import XCTest
 import SwiftUI
 @testable import iOS18Shell
 
+@MainActor
 final class AppTabTests: XCTestCase {
     func testAppTabCarriesItsChromeUnchanged() {
         let tab = AppTab(id: "home", title: "Home", systemImage: "house", role: .search) {

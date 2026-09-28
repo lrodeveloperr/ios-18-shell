@@ -1,9 +1,6 @@
 name: Apple shell compile
 
 on:
-  push:
-    branches:
-      - audit/apple-api-shell-2026-09-28
   pull_request:
     branches:
       - claude/vibrant-mccarthy-481j1v
