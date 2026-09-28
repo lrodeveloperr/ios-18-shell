@@ -196,9 +196,12 @@ AppShellSignInWithAppleButton(requestedScopes: [.email]) { result in
 }
 ```
 
-See `Examples/ShellExampleApp.swift` for integration wiring. The example
-is source-only rather than a runnable app target; CI typechecks it for
-macOS and iOS Simulator.
+Open `Examples/ShellExampleApp.xcodeproj` in Xcode to run the example
+on an iOS 18+ iPhone or iPad simulator. It links this repository as a
+local Swift package. `Product > Test` runs the UI smoke checks for
+compact navigation on iPhone and regular navigation on iPad; CI runs
+both. The example source is also typechecked for macOS, but the Xcode
+sample app itself targets iOS and iPadOS.
 
 ## Project layout
 
@@ -226,7 +229,9 @@ Tests/iOS18ShellTests/
   AppTabTests.swift
   AppShellNavigatorTests.swift
 Examples/
-  ShellExampleApp.swift      // full usage example, every piece wired together
+  ShellExampleApp.swift      // runnable iPhone/iPad integration example
+  ShellExampleApp.xcodeproj/ // Xcode app and UI-test targets
+  ShellExampleUITests/        // simulator navigation smoke tests
 ```
 
 ## Design notes
