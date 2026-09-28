@@ -99,6 +99,12 @@ AppShellView(tabIDs: ["home", "downloads", "favorites"], navigator: navigator) {
 }
 ```
 
+On iPhone, `TabSection` destinations are hidden from the compact tab
+bar by default. Provide a visible top-level tab with links to those
+destinations, or present a different compact tab structure. The full
+example switches to a visible Library tab and Account tab in compact
+layouts, while keeping sections in regular layouts.
+
 Search — just read the environment value, no extra `@State`:
 
 ```swift
@@ -133,7 +139,7 @@ AppShellView(tabIDs: tabs.map(\.id), navigator: navigator) {
     appShellTab(tabs[1], navigator: navigator)
 }
     .onOpenURL { url in
-        navigator.navigate(to: "library", pushing: route(for: url))
+        navigator.navigate(to: "home") // Validate and map the URL to a declared tab ID.
     }
 ```
 
@@ -185,7 +191,8 @@ AppShellSignInWithAppleButton(requestedScopes: [.email]) { result in
 ```
 
 See `Examples/ShellExampleApp.swift` for integration wiring. The example
-is source-only and is not compiled by the package test target.
+is source-only rather than a runnable app target; CI typechecks it for
+macOS and iOS Simulator.
 
 ## Project layout
 
