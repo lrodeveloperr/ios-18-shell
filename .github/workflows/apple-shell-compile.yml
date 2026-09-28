@@ -23,4 +23,11 @@ jobs:
             -I "$BIN_PATH/Modules" \
             Examples/ShellExampleApp.swift
       - name: Compile package for iOS Simulator
-        run: xcodebuild -scheme iOS18Shell -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
+        run: xcodebuild -scheme iOS18Shell -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/iOS18ShellDerivedData" CODE_SIGNING_ALLOWED=NO build
+      - name: Typecheck standalone example for iOS Simulator
+        run: |
+          swiftc -typecheck -parse-as-library \
+            -target arm64-apple-ios18.0-simulator \
+            -sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" \
+            -I "$RUNNER_TEMP/iOS18ShellDerivedData/Build/Products/Debug-iphonesimulator" \
+            Examples/ShellExampleApp.swift
