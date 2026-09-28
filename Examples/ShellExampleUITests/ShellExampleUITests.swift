@@ -33,8 +33,10 @@ final class ShellExampleUITests: XCTestCase {
         app.launch()
 
         XCTAssertTrue(app.staticTexts["shell.home.content"].waitForExistence(timeout: 15))
-        let search = app.tabBars.buttons["Search"]
-        XCTAssertTrue(search.exists)
+        // iPadOS exposes the floating tab bar's items as accessibility
+        // cells rather than the iPhone-style TabBar buttons.
+        let search = app.cells["Search"].firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
         search.tap()
         XCTAssertTrue(app.staticTexts["shell.search.content"].waitForExistence(timeout: 5))
     }
