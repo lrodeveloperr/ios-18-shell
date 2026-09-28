@@ -3,17 +3,8 @@ import SwiftData
 /// Builds the `ModelContainer` for your `@Model` types using Apple's own
 /// SwiftData framework — no third-party persistence library needed.
 ///
-/// ```swift
-/// var body: some Scene {
-///     WindowGroup {
-///         if let container = try? AppShellModelContainer.make(for: [Album.self, Track.self]) {
-///             AppShellView(tabs: tabs).modelContainer(container)
-///         } else {
-///             ContentUnavailableView("Data Unavailable", systemImage: "externaldrive.badge.exclamationmark")
-///         }
-///     }
-/// }
-/// ```
+/// See `Examples/ShellExampleApp.swift` for a root view that handles
+/// container creation failure without replacing the user's stored data.
 @MainActor
 public enum AppShellModelContainer {
     /// - Parameters:
