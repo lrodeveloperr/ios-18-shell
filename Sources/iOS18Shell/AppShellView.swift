@@ -71,6 +71,17 @@ public struct AppShellView: View {
     }
 
     public var body: some View {
+        configuredTabs
+            .onAppear(perform: restoreSelectionIfNeeded)
+            .onChange(of: navigator.selection, perform: selectionDidChange)
+            .onChange(of: allTabIDs(), perform: tabIDsDidChange)
+    }
+
+    private var configuredTabs: some View {
+        tabView.applySidebarAdaptableStyle(customization: $customization)
+    }
+
+    private var tabView: some View {
         TabView(selection: $navigator.selection) {
             ForEach(tabs) { tab in
                 Tab(tab.title, systemImage: tab.systemImage, value: tab.id, role: tab.role.native) {
@@ -92,20 +103,20 @@ public struct AppShellView: View {
                 .defaultVisibility(group.hiddenFromCompactTabBar ? .hidden : .visible, for: .tabBar)
             }
         }
-        .applySidebarAdaptableStyle(customization: $customization)
-        .onAppear(perform: restoreSelectionIfNeeded)
-        .onChange(of: navigator.selection) { _, newValue in
-            guard !newValue.isEmpty else { return }
-            guard allTabIDs().contains(newValue) else {
-                navigator.selection = allTabIDs().first ?? ""
-                return
-            }
-            storedSelection = newValue
+    }
+
+    private func selectionDidChange(_ oldValue: String, _ newValue: String) {
+        guard !newValue.isEmpty else { return }
+        guard allTabIDs().contains(newValue) else {
+            navigator.selection = allTabIDs().first ?? ""
+            return
         }
-        .onChange(of: allTabIDs()) { _, knownIDs in
-            if !knownIDs.contains(navigator.selection) {
-                navigator.selection = knownIDs.first ?? ""
-            }
+        storedSelection = newValue
+    }
+
+    private func tabIDsDidChange(_ oldIDs: [String], _ knownIDs: [String]) {
+        if !knownIDs.contains(navigator.selection) {
+            navigator.selection = knownIDs.first ?? ""
         }
     }
 
