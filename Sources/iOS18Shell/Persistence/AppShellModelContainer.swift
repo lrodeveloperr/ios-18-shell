@@ -6,9 +6,12 @@ import SwiftData
 /// ```swift
 /// var body: some Scene {
 ///     WindowGroup {
-///         AppShellView(tabs: tabs)
+///         if let container = try? AppShellModelContainer.make(for: [Album.self, Track.self]) {
+///             AppShellView(tabs: tabs).modelContainer(container)
+///         } else {
+///             ContentUnavailableView("Data Unavailable", systemImage: "externaldrive.badge.exclamationmark")
+///         }
 ///     }
-///     .modelContainer(AppShellModelContainer.make(for: [Album.self, Track.self]))
 /// }
 /// ```
 @MainActor
@@ -17,12 +20,8 @@ public enum AppShellModelContainer {
     ///   - models: Every `@Model` type the container should manage.
     ///   - inMemory: Pass `true` for previews/tests so nothing is
     ///     written to disk. Defaults to `false` (persisted on disk).
-    public static func make(for models: [any PersistentModel.Type], inMemory: Bool = false) -> ModelContainer {
+    public static func make(for models: [any PersistentModel.Type], inMemory: Bool = false) throws -> ModelContainer {
         let configuration = ModelConfiguration(isStoredInMemoryOnly: inMemory)
-        do {
-            return try ModelContainer(for: Schema(models), configurations: [configuration])
-        } catch {
-            fatalError("Failed to create SwiftData ModelContainer: \(error)")
-        }
+        return try ModelContainer(for: Schema(models), configurations: [configuration])
     }
 }

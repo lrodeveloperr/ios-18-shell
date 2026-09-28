@@ -41,9 +41,9 @@ public struct AppTabGroup: Identifiable {
 
     /// - Parameter hiddenFromCompactTabBar: When true, this group is
     ///   hidden from the iPhone-style tab bar by default and only
-    ///   reachable once the shell is shown as a sidebar (iPad/Mac) or via
-    ///   the "More" tab that SwiftUI adds automatically. Useful for
-    ///   secondary destinations you don't want crowding the phone tab bar.
+    ///   reachable once the shell is shown as a sidebar (iPad/Mac).
+    ///   Provide an explicit route to these destinations on compact
+    ///   devices; a hidden tab has no guaranteed "More" destination.
     public let hiddenFromCompactTabBar: Bool
 
     public init(id: String, title: String, tabs: [AppTab], hiddenFromCompactTabBar: Bool = false) {

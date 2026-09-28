@@ -20,24 +20,28 @@ import SwiftUI
 /// }
 /// ```
 public struct AppShellSignInWithAppleButton: View {
+    @Environment(\.colorScheme) private var colorScheme
     private let label: SignInWithAppleButton.Label
+    private let requestedScopes: [ASAuthorization.Scope]
     private let onCompletion: (Result<ASAuthorization, Error>) -> Void
 
     public init(
         label: SignInWithAppleButton.Label = .signIn,
+        requestedScopes: [ASAuthorization.Scope] = [],
         onCompletion: @escaping (Result<ASAuthorization, Error>) -> Void
     ) {
         self.label = label
+        self.requestedScopes = requestedScopes
         self.onCompletion = onCompletion
     }
 
     public var body: some View {
         SignInWithAppleButton(label) { request in
-            request.requestedScopes = [.fullName, .email]
+            request.requestedScopes = requestedScopes
         } onCompletion: { result in
             onCompletion(result)
         }
-        .signInWithAppleButtonStyle(.black)
+        .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
         .frame(height: 44)
     }
 }

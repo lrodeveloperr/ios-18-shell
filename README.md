@@ -11,7 +11,7 @@ Human Interface Guidelines for navigation:
 
 | Platform | Presentation |
 |---|---|
-| iPhone | Floating, translucent bottom tab bar |
+| iPhone | System bottom tab bar (appearance follows the installed OS) |
 | iPad | `.sidebarAdaptable` — tab bar or full sidebar, user-toggleable |
 | Mac | `.sidebarAdaptable` sidebar (no bottom tab bar, per macOS HIG) |
 | Vision Pro | Same sidebar-adaptable behavior as iPad/Mac |
@@ -26,14 +26,14 @@ so the content of each tab is just whatever `View` you already have.
 
 | Piece | What it gives you | Built on |
 |---|---|---|
-| `AppShellView` | The adaptive tab bar/sidebar shell itself, each tab in its own `NavigationStack`, selection restored across launches | `TabView`, `Tab`, `TabSection`, `NavigationStack`, `@SceneStorage` |
+| `AppShellView` | Adaptive tab bar/sidebar, each tab in its own `NavigationStack`, best-effort scene selection restoration | `TabView`, `Tab`, `TabSection`, `NavigationStack`, `@SceneStorage` |
 | `AppShellNavigator` | Shared state for selected tab + per-tab push path + per-tab search text; the hook for deep linking (`navigate(to:pushing:)`) | `ObservableObject`, `NavigationPath` |
 | `appShellSearchQuery` environment key | The search-role tab gets `.searchable()` wired automatically; read the live query with `@Environment(\.appShellSearchQuery)` | `.searchable(text:)` |
 | `AppLoadState` / `AppAsyncStateView` | Consistent loading / empty / error UI for any backend call, no hand-rolled `if/else` per screen | `ContentUnavailableView`, `ProgressView` |
-| `AppShellSettingsView` / `AppShellSettingsPane` | A standard multi-pane macOS Settings window | `TabView` + `.tabItem` (the same pattern macOS's own Settings uses) |
-| `AppShellCommands` | ⌘1…⌘9 menu bar shortcuts that jump between tabs | `Commands`, `CommandMenu` |
-| `AppShellModelContainer` | One-line `ModelContainer` setup for your `@Model` types | SwiftData |
-| `AppShellTips` | One-line TipKit configuration for onboarding tips | TipKit |
+| `AppShellSettingsView` / `AppShellSettingsPane` | A multi-pane macOS Settings window | `TabView` + `.tabItem` |
+| `AppShellCommands` | ⌘1…⌘9 shortcuts for the first nine top-level and grouped destinations (unavailable on watchOS) | `Commands`, `CommandMenu` |
+| `AppShellModelContainer` | Throwing `ModelContainer` setup so storage failures can be handled | SwiftData |
+| `AppShellTips` | Throwing TipKit configuration for contextual tips | TipKit |
 | `AppShellSignInWithAppleButton` | A ready "Sign in with Apple" button (iOS/macOS/visionOS only — there's no watchOS/tvOS button in AuthenticationServices) | AuthenticationServices |
 
 ## Requirements
@@ -94,7 +94,7 @@ AppShellView(
         ]),
         AppTabGroup(id: "settings", title: "Settings", tabs: [
             AppTab(id: "account", title: "Account", systemImage: "person.crop.circle") { AccountView() }
-        ], hiddenFromCompactTabBar: true) // keep it off the iPhone tab bar
+        ], hiddenFromCompactTabBar: true) // provide a separate route on iPhone
     ]
 )
 ```
@@ -137,11 +137,19 @@ AppShellView(tabs: tabs, navigator: navigator)
 Persistence (SwiftData) and onboarding (TipKit), wired at the app root:
 
 ```swift
-init() { AppShellTips.configure() }
+init() {
+    do { try AppShellTips.configure() }
+    catch { print("TipKit setup failed: \(error)") }
+}
 
 var body: some Scene {
-    WindowGroup { AppShellView(tabs: tabs) }
-        .modelContainer(AppShellModelContainer.make(for: [Album.self]))
+    WindowGroup {
+        if let container = try? AppShellModelContainer.make(for: [Album.self]) {
+            AppShellView(tabs: tabs).modelContainer(container)
+        } else {
+            ContentUnavailableView("Data Unavailable", systemImage: "externaldrive.badge.exclamationmark")
+        }
+    }
 }
 ```
 
@@ -162,7 +170,7 @@ var body: some Scene {
 Sign in with Apple:
 
 ```swift
-AppShellSignInWithAppleButton { result in
+AppShellSignInWithAppleButton(requestedScopes: [.email]) { result in
     // result: Result<ASAuthorization, Error> — send the credential to your backend.
 }
 ```
@@ -207,8 +215,14 @@ Examples/
 - Tabs are data-driven (`ForEach` inside `TabView`), so you can build
   the `[AppTab]` array dynamically — e.g. from a feature-flagged or
   role-based navigation config — without hand-writing a `switch`.
-- `TabViewCustomization` is wired up so people can reorder or hide tabs
-  on iPad/Mac/Vision Pro; their choices persist automatically.
+- `TabViewCustomization` uses `@AppStorage` so sidebar and tab-bar
+  choices persist. `@SceneStorage` restores a tab selection when the
+  system restores that scene; it is not a permanent launch preference.
+- `initialSelection` is used only when no valid scene selection exists.
+  A hidden compact tab needs an explicit in-app route on iPhone; don't
+  depend on SwiftUI supplying a "More" tab.
+- A repeated tap does not automatically pop a navigation stack; use
+  `navigator.popToRoot(_:)` when your app explicitly offers that action.
 - No third-party dependencies anywhere in this package — every piece is
   a first-party Apple framework (SwiftUI, SwiftData, TipKit,
   AuthenticationServices), so there's nothing extra to audit or update.

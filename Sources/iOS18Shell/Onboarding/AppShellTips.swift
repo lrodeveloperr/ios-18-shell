@@ -8,20 +8,18 @@ import TipKit
 /// @main
 /// struct MyApp: App {
 ///     init() {
-///         AppShellTips.configure()
+///         do { try AppShellTips.configure() }
+///         catch { print("TipKit setup failed: \(error)") }
 ///     }
 ///     ...
 /// }
 /// ```
 ///
-/// After that, define your own `Tip` types per screen and show them
+/// The call throws when TipKit cannot initialize. After that, define your own `Tip` types per screen and show them
 /// with `TipView(myTip)` or `.popoverTip(myTip)` — TipKit (not this
 /// package) owns display frequency, dismissal, and storage.
 public enum AppShellTips {
-    public static func configure() {
-        try? Tips.configure([
-            .displayFrequency(.immediate),
-            .datastoreLocation(.applicationDefault)
-        ])
+    public static func configure() throws {
+        try Tips.configure()
     }
 }

@@ -8,7 +8,7 @@ import SwiftUI
 ///
 /// Hand it your tabs; `AppShellView` picks the right chrome per platform:
 ///
-/// - **iPhone**: the floating, translucent bottom tab bar.
+/// - **iPhone**: the system bottom tab bar.
 /// - **iPad & Mac**: `.sidebarAdaptable` — people can flip between a
 ///   compact tab bar and a full sidebar, and can drag to reorder or hide
 ///   tabs (persisted via `TabViewCustomization`).
@@ -18,7 +18,7 @@ import SwiftUI
 ///
 /// Every tab gets its own `NavigationStack` (push/pop history, deep-link
 /// target) and the shell remembers which tab was selected across
-/// launches via `@SceneStorage`. Wrap your existing backend-driven
+/// scene restoration via `@SceneStorage`. Wrap your existing backend-driven
 /// screens as ``AppTab`` content and drop this in at the root of your
 /// `App`:
 ///
@@ -45,7 +45,7 @@ public struct AppShellView: View {
     private let initialSelection: String?
 
     @StateObject private var navigator: AppShellNavigator
-    @State private var customization = TabViewCustomization()
+    @AppStorage("iOS18Shell.tabCustomization") private var customization = TabViewCustomization()
     @SceneStorage("iOS18Shell.selectedTab") private var storedSelection = ""
 
     /// - Parameters:
@@ -56,9 +56,8 @@ public struct AppShellView: View {
     ///     to drive tab selection or push navigation from outside the
     ///     shell (deep links, push notifications). Omit it to let the
     ///     shell own its own.
-    ///   - initialSelection: The tab id selected the very first time the
-    ///     shell appears (before any `@SceneStorage` restoration has a
-    ///     value). Defaults to the first tab.
+    ///   - initialSelection: The tab id selected when no valid scene
+    ///     selection can be restored. Defaults to the first tab.
     public init(
         tabs: [AppTab],
         groups: [AppTabGroup] = [],
@@ -97,17 +96,26 @@ public struct AppShellView: View {
         .onAppear(perform: restoreSelectionIfNeeded)
         .onChange(of: navigator.selection) { _, newValue in
             guard !newValue.isEmpty else { return }
+            guard allTabIDs().contains(newValue) else {
+                navigator.selection = allTabIDs().first ?? ""
+                return
+            }
             storedSelection = newValue
+        }
+        .onChange(of: allTabIDs()) { _, knownIDs in
+            if !knownIDs.contains(navigator.selection) {
+                navigator.selection = knownIDs.first ?? ""
+            }
         }
     }
 
     private func restoreSelectionIfNeeded() {
-        guard navigator.selection.isEmpty else { return }
         let knownIDs = allTabIDs()
-        if let initialSelection, knownIDs.contains(initialSelection) {
-            navigator.selection = initialSelection
-        } else if knownIDs.contains(storedSelection) {
+        if knownIDs.contains(navigator.selection) { return }
+        if knownIDs.contains(storedSelection) {
             navigator.selection = storedSelection
+        } else if let initialSelection, knownIDs.contains(initialSelection) {
+            navigator.selection = initialSelection
         } else {
             navigator.selection = knownIDs.first ?? ""
         }

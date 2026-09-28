@@ -32,6 +32,7 @@ public struct AppAsyncStateView<Value, Content: View>: View {
     private let emptyTitle: String
     private let emptySystemImage: String
     private let emptyDescription: String?
+    private let errorDescription: String?
     private let retry: (() -> Void)?
     private let content: (Value) -> Content
 
@@ -40,6 +41,7 @@ public struct AppAsyncStateView<Value, Content: View>: View {
         emptyTitle: String = "No Content",
         emptySystemImage: String = "tray",
         emptyDescription: String? = nil,
+        errorDescription: String? = nil,
         retry: (() -> Void)? = nil,
         @ViewBuilder content: @escaping (Value) -> Content
     ) {
@@ -47,6 +49,7 @@ public struct AppAsyncStateView<Value, Content: View>: View {
         self.emptyTitle = emptyTitle
         self.emptySystemImage = emptySystemImage
         self.emptyDescription = emptyDescription
+        self.errorDescription = errorDescription
         self.retry = retry
         self.content = content
     }
@@ -67,11 +70,11 @@ public struct AppAsyncStateView<Value, Content: View>: View {
                 ContentUnavailableView(emptyTitle, systemImage: emptySystemImage)
             }
 
-        case .failed(let error):
+        case .failed:
             ContentUnavailableView {
                 Label("Something Went Wrong", systemImage: "exclamationmark.triangle")
             } description: {
-                Text(error.localizedDescription)
+                Text(errorDescription ?? "Please try again.")
             } actions: {
                 if let retry {
                     Button("Try Again", action: retry)

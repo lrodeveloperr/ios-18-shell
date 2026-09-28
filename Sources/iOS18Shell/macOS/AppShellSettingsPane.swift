@@ -20,9 +20,7 @@ public struct AppShellSettingsPane: Identifiable {
     }
 }
 
-/// A standard multi-pane Settings layout, in the same `TabView` +
-/// `.tabItem` style macOS's own System Settings and most first-party
-/// Apple apps use. Plug straight into a `Settings` scene:
+/// A multi-pane Settings layout for a macOS `Settings` scene.
 ///
 /// ```swift
 /// var body: some Scene {
@@ -58,6 +56,6 @@ public struct AppShellSettingsView: View {
                     .tag(pane.id)
             }
         }
-        .frame(width: 500, height: 300)
+        .frame(minWidth: 500, minHeight: 300)
     }
 }

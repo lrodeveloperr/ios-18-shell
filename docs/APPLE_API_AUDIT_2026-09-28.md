@@ -1,0 +1,20 @@
+# Apple API audit — 28 September 2026
+
+Source reviewed: `claude/vibrant-mccarthy-481j1v` at `b683cca4c841d72ef4f68af325fbeac174bfe519`.
+
+| Component | Apple API / finding | Resolution |
+| --- | --- | --- |
+| `AppShellView`, `AppTab`, `AppTabGroup` | Apple's adaptable tabs use `Tab`, `TabSection`, `customizationID`, and `defaultVisibility`. An in-memory customization value did not persist. The documentation promised a compact “More” destination without guaranteeing one. | Store customization in `@AppStorage`; document an explicit route for hidden compact destinations. |
+| Selection restoration | `@SceneStorage` is scene restoration, not a durable user preference. `initialSelection` incorrectly overrode a restored selection. Invalid deep-link IDs could select a nonexistent tab. | Prefer a valid restored selection, then `initialSelection`; reject invalid selections and validate the example's deep-link target. |
+| `AppShellNavigator` | A bound `NavigationPath` per tab and value-based navigation match Apple's stack API. `popToRoot` exists but repeated tapping is not observed by this code. | Keep the path approach; correct the behavioral promise in the README. Call `popToRoot` from a real app action when needed. |
+| Search environment | `.searchable(text:)` inside a navigation hierarchy matches Apple's search placement. `TabRole.search` marks a search destination. | Retain. Search results, cancellation and empty-query behavior remain app-specific. |
+| Loading and unavailable states | `ProgressView` and `ContentUnavailableView` are native. Displaying arbitrary `Error.localizedDescription` could expose implementation details and offer poor copy. | Default to a safe message, allow the app to supply a useful contextual description, and retain retry. |
+| macOS settings and commands | The Settings `TabView` is a supported composition. Fixed size constrained larger text and content. `Commands` is unavailable on watchOS. Commands omitted grouped tabs. | Use minimum size, exclude commands on watchOS, include grouped tabs in command ordering. |
+| SwiftData helper | Apple's `ModelContainer` initializer throws. A reusable helper must let the consuming app decide how to handle a store failure. | Propagate the error; example shows an unavailable state without replacing the on-disk store. |
+| TipKit helper | `Tips.configure` throws; forced immediate frequency can overwhelm the user. | Propagate configuration errors and use TipKit defaults. |
+| Sign in with Apple | Requested identity scopes should match the app's actual need; button contrast depends on the background. | Make scopes opt-in, use a contrasting native button style in light/dark appearance. |
+| Example and package | The example is not a build target. The package declares iOS 18 and corresponding platform minimums. | Updated example for throwing APIs and grouped commands. Platform compilation still requires Xcode on macOS. |
+
+Apple references: [tab navigation](https://developer.apple.com/documentation/swiftui/enhancing-your-app-content-with-tab-navigation), [tab customization](https://developer.apple.com/documentation/swiftui/tabviewcustomization), [scene restoration](https://developer.apple.com/documentation/swiftui/scenestorage), [navigation stack](https://developer.apple.com/documentation/swiftui/understanding-the-navigation-stack), [search](https://developer.apple.com/documentation/swiftui/adding-a-search-interface-to-your-app), [SwiftData container](https://developer.apple.com/documentation/swiftdata/modelcontainer), [TipKit configuration](https://developer.apple.com/documentation/tipkit/tips/configure(_:)), [Sign in with Apple](https://developer.apple.com/design/human-interface-guidelines/sign-in-with-apple/).
+
+Validation: `git diff --check` passed. This environment has neither Xcode nor `swiftc`, so compilation and device behavior remain unverified. Build the package and run tests with Xcode before merging or deriving a release app. Review tab/sidebar behavior on iPhone and iPad at normal and large text sizes, and validate sign-in configuration in the consuming app.

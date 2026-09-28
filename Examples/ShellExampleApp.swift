@@ -9,10 +9,16 @@ import iOS18Shell
 @main
 struct ShellExampleApp: App {
     @StateObject private var navigator = AppShellNavigator()
+    private let container: Result<ModelContainer, Error>
 
     init() {
+        container = Result { try AppShellModelContainer.make(for: [DownloadRecord.self]) }
         // Apple's own TipKit onboarding tips — one-time setup.
-        AppShellTips.configure()
+        do {
+            try AppShellTips.configure()
+        } catch {
+            print("TipKit setup failed: \(error)")
+        }
     }
 
     private var tabs: [AppTab] {
@@ -55,19 +61,26 @@ struct ShellExampleApp: App {
 
     var body: some Scene {
         WindowGroup {
-            AppShellView(tabs: tabs, groups: groups, navigator: navigator)
-                .onOpenURL { url in
+            switch container {
+            case .success(let modelContainer):
+                AppShellView(tabs: tabs, groups: groups, navigator: navigator)
+                    .modelContainer(modelContainer)
+                    .onOpenURL { url in
                     // Map your own URL scheme to a tab (and, via
                     // navigator.navigate(to:pushing:), a pushed route).
                     // e.g. myapp://downloads -> select the "downloads" tab.
-                    guard let tabID = url.host else { return }
-                    navigator.navigate(to: tabID)
-                }
+                    guard let tabID = url.host,
+                          (tabs.map(\.id) + groups.flatMap { $0.tabs.map(\.id) }).contains(tabID)
+                    else { return }
+                        navigator.navigate(to: tabID)
+                    }
+            case .failure:
+                ContentUnavailableView("Data Unavailable", systemImage: "externaldrive.badge.exclamationmark", description: Text("Please reopen the app or contact support if this continues."))
+            }
         }
-        .modelContainer(AppShellModelContainer.make(for: [DownloadRecord.self]))
         #if os(macOS)
         .commands {
-            AppShellCommands(navigator: navigator, tabs: tabs)
+            AppShellCommands(navigator: navigator, tabs: tabs, groups: groups)
         }
         #endif
 

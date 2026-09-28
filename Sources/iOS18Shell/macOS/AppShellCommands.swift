@@ -1,3 +1,4 @@
+#if !os(watchOS)
 import SwiftUI
 
 /// Menu bar commands that jump between the shell's tabs, with ⌘1…⌘9
@@ -20,9 +21,9 @@ public struct AppShellCommands: Commands {
     private let navigator: AppShellNavigator
     private let tabs: [AppTab]
 
-    public init(navigator: AppShellNavigator, tabs: [AppTab]) {
+    public init(navigator: AppShellNavigator, tabs: [AppTab], groups: [AppTabGroup] = []) {
         self.navigator = navigator
-        self.tabs = tabs
+        self.tabs = tabs + groups.flatMap(\.tabs)
     }
 
     public var body: some Commands {
@@ -42,3 +43,4 @@ public struct AppShellCommands: Commands {
         }
     }
 }
+#endif
