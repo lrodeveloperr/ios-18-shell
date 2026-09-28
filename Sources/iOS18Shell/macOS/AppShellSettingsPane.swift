@@ -24,7 +24,7 @@ public struct AppShellSettingsPane: Identifiable {
 ///
 /// ```swift
 /// var body: some Scene {
-///     WindowGroup { AppShellView(tabs: tabs) }
+///     WindowGroup { ShellRootView() }
 ///     #if os(macOS)
 ///     Settings {
 ///         AppShellSettingsView(panes: [
